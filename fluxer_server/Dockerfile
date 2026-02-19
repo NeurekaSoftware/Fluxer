@@ -141,15 +141,9 @@ RUN mkdir -p /usr/src/app/data/storage && \
 	chown -R root:root /opt/data && \
 	chown -R root:root /data
 
-ARG INCLUDE_NSFW_ML=false
-
+# Bundle NSFW model by default so the monolith media-proxy starts without extra mounts.
 RUN --mount=type=bind,from=build,source=/usr/src/app/fluxer_media_proxy/data/model.onnx,target=/tmp/model.onnx \
-    if [ "$INCLUDE_NSFW_ML" = "true" ]; then \
-        echo "Including NSFW detection model..."; \
-        cp /tmp/model.onnx /opt/data/model.onnx; \
-    else \
-        echo "Skipping NSFW detection model (INCLUDE_NSFW_ML=$INCLUDE_NSFW_ML)"; \
-    fi
+    cp /tmp/model.onnx /opt/data/model.onnx
 
 
 
@@ -172,6 +166,8 @@ ENV BUILD_SHA=${BUILD_SHA}
 ENV BUILD_NUMBER=${BUILD_NUMBER}
 ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 ENV RELEASE_CHANNEL=${RELEASE_CHANNEL}
+
+WORKDIR /usr/src/app/fluxer_server
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 	CMD curl -f http://localhost:8080/_health || exit 1
