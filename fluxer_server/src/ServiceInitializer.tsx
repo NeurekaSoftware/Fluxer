@@ -36,6 +36,7 @@ import {JetStreamWorkerQueue} from '@fluxer/api/src/worker/JetStreamWorkerQueue'
 import {WorkerService} from '@fluxer/api/src/worker/WorkerService';
 import {createAppServer} from '@fluxer/app_proxy/src/AppServer';
 import type {AppServerResult} from '@fluxer/app_proxy/src/AppServerTypes';
+import {buildFluxerCSPOptions} from '@fluxer/app_proxy/src/app_server/utils/CSP';
 import {getBuildMetadata} from '@fluxer/config/src/BuildMetadata';
 import {ADMIN_OAUTH2_APPLICATION_ID} from '@fluxer/constants/src/Core';
 import {createServiceTelemetry} from '@fluxer/hono/src/middleware/TelemetryAdapters';
@@ -277,6 +278,21 @@ function createAppServerInitializer(context: ServiceInitializationContext): Serv
 
 	const publicUrlHost = new URL(requireValue(config.endpoints.app, 'endpoints.app')).origin;
 	const mediaUrlHost = new URL(requireValue(config.endpoints.media, 'endpoints.media')).origin;
+	const staticCdnHost = new URL(requireValue(config.endpoints.static_cdn, 'endpoints.static_cdn')).origin;
+
+	// Reuse app-proxy CSP defaults (includes captcha + static asset hosts), then add instance-specific origins.
+	const cspDirectives = buildFluxerCSPOptions({sentryDsn: config.app_public.sentry_dsn});
+	cspDirectives.imgSrc = Array.from(
+		new Set([...(cspDirectives.imgSrc ?? []), publicUrlHost, mediaUrlHost, staticCdnHost]),
+	);
+	cspDirectives.mediaSrc = Array.from(new Set([...(cspDirectives.mediaSrc ?? []), mediaUrlHost, staticCdnHost]));
+	cspDirectives.fontSrc = Array.from(new Set([...(cspDirectives.fontSrc ?? []), staticCdnHost]));
+	cspDirectives.scriptSrc = Array.from(new Set([...(cspDirectives.scriptSrc ?? []), staticCdnHost]));
+	cspDirectives.styleSrc = Array.from(new Set([...(cspDirectives.styleSrc ?? []), staticCdnHost]));
+	cspDirectives.connectSrc = Array.from(
+		new Set([...(cspDirectives.connectSrc ?? []), publicUrlHost, mediaUrlHost, staticCdnHost, 'wss:', 'ws:']),
+	);
+	cspDirectives.frameSrc = Array.from(new Set([...(cspDirectives.frameSrc ?? []), publicUrlHost]));
 
 	const appServer = createAppServer({
 		staticDir,
@@ -286,16 +302,7 @@ function createAppServerInitializer(context: ServiceInitializationContext): Serv
 			metricsCollector: telemetry.metricsCollector,
 			tracing: telemetry.tracing,
 		},
-		cspDirectives: {
-			defaultSrc: ["'self'"],
-			scriptSrc: ["'self'", "'unsafe-inline'"],
-			styleSrc: ["'self'", "'unsafe-inline'"],
-			imgSrc: ["'self'", 'data:', 'blob:', publicUrlHost, mediaUrlHost],
-			connectSrc: ["'self'", 'wss:', 'ws:', publicUrlHost],
-			fontSrc: ["'self'"],
-			mediaSrc: ["'self'", 'blob:', mediaUrlHost],
-			frameSrc: ["'none'"],
-		},
+		cspDirectives,
 	});
 
 	return {
