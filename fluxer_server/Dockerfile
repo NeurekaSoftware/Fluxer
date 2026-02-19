@@ -11,6 +11,7 @@ RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
 	curl \
+	ca-certificates \
 	python3 \
 	make \
 	g++ \
@@ -23,37 +24,7 @@ COPY pnpm-lock.yaml ./
 COPY package.json ./
 COPY patches/ ./patches/
 
-COPY packages/admin/package.json ./packages/admin/
-COPY packages/api/package.json ./packages/api/
-COPY packages/app/package.json ./packages/app/
-COPY packages/cache/package.json ./packages/cache/
-COPY packages/captcha/package.json ./packages/captcha/
-COPY packages/cassandra/package.json ./packages/cassandra/
-COPY packages/config/package.json ./packages/config/
-COPY packages/constants/package.json ./packages/constants/
-COPY packages/email/package.json ./packages/email/
-COPY packages/errors/package.json ./packages/errors/
-COPY packages/hono/package.json ./packages/hono/
-COPY packages/hono_types/package.json ./packages/hono_types/
-COPY packages/initialization/package.json ./packages/initialization/
-COPY packages/ip_utils/package.json ./packages/ip_utils/
-COPY packages/logger/package.json ./packages/logger/
-COPY packages/marketing/package.json ./packages/marketing/
-COPY packages/media_proxy/package.json ./packages/media_proxy/
-COPY packages/oauth2/package.json ./packages/oauth2/
-COPY packages/queue/package.json ./packages/queue/
-COPY packages/rate_limit/package.json ./packages/rate_limit/
-COPY packages/s3/package.json ./packages/s3/
-COPY packages/sentry/package.json ./packages/sentry/
-COPY packages/sms/package.json ./packages/sms/
-COPY packages/snowflake/package.json ./packages/snowflake/
-COPY packages/telemetry/package.json ./packages/telemetry/
-COPY packages/ui/package.json ./packages/ui/
-COPY packages/validation/package.json ./packages/validation/
-COPY packages/virus_scan/package.json ./packages/virus_scan/
-COPY packages/worker/package.json ./packages/worker/
-COPY packages/http_client/package.json ./packages/http_client/
-COPY packages/schema/package.json ./packages/schema/
+COPY packages/ ./packages/
 COPY fluxer_server/package.json ./fluxer_server/
 COPY fluxer_app/package.json ./fluxer_app/
 
@@ -107,12 +78,21 @@ RUN LOGGER_LEVEL=${LOGGER_LEVEL} envsubst '${LOGGER_LEVEL}' < fluxer_gateway/con
 
 FROM deps AS app-build
 
+# fluxer_app build runs wasm-pack, which requires cargo and wasm32 target.
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable && \
+	/root/.cargo/bin/rustup target add wasm32-unknown-unknown
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 COPY tsconfigs /usr/src/app/tsconfigs
 
 COPY packages/ ./packages/
 COPY fluxer_app/ ./fluxer_app/
+COPY config/config.test.json /usr/src/app/config/config.test.json
 
-RUN cd fluxer_app && pnpm build
+ENV FLUXER_CONFIG=/usr/src/app/config/config.test.json
+
+RUN cd fluxer_app && pnpm lingui:compile && pnpm build
 
 FROM node:24-trixie-slim AS production
 
