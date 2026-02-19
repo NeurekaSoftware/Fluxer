@@ -1,0 +1,13 @@
+{
+	"$schema": "../packages/config/src/ConfigSchema.json",
+	"env": "production",
+	"instance": {
+		"self_hosted": true
+	},
+	"app_public": {
+		"api_version": 1,
+		"bootstrap_api_endpoint": "/api",
+		"bootstrap_api_public_endpoint": "/api",
+		"sentry_dsn": ""
+	}
+}

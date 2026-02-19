@@ -88,9 +88,9 @@ COPY tsconfigs /usr/src/app/tsconfigs
 
 COPY packages/ ./packages/
 COPY fluxer_app/ ./fluxer_app/
-COPY config/config.test.json /usr/src/app/config/config.test.json
+COPY config/config.app-build.json /usr/src/app/config/config.app-build.json
 
-ENV FLUXER_CONFIG=/usr/src/app/config/config.test.json
+ENV FLUXER_CONFIG=/usr/src/app/config/config.app-build.json
 
 RUN cd fluxer_app && pnpm lingui:compile && pnpm build
 

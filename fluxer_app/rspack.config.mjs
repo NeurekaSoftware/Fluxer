@@ -35,7 +35,7 @@ const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const PKGS_DIR = path.join(ROOT_DIR, 'pkgs');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'assets');
 
-const CDN_ENDPOINT = 'https://fluxerstatic.com';
+const CLOUD_CDN_ENDPOINT = 'https://fluxerstatic.com';
 
 function resolveMode() {
 	const modeIndex = process.argv.indexOf('--mode');
@@ -170,13 +170,41 @@ function stripApiSuffix(url) {
 	return url.endsWith('/api') ? url.slice(0, -4) : url;
 }
 
-function resolveAppPublic(config) {
+function isSelfHostedBuild(config) {
+	const selfHosted = getValue(config, ['instance', 'self_hosted'], true);
+	return selfHosted !== false;
+}
+
+function ensureTrailingSlash(value) {
+	return value.endsWith('/') ? value : `${value}/`;
+}
+
+function resolveStaticCdnEndpoint(config, selfHostedBuild) {
+	const envOverride = normalizeOverride(process.env.FLUXER_APP_STATIC_CDN_ENDPOINT);
+	if (envOverride !== undefined) {
+		return envOverride;
+	}
+
+	if (selfHostedBuild) {
+		return '';
+	}
+
+	const appPublic = getValue(config, ['app_public'], {});
+	const appPublicOverride = normalizeOverride(appPublic.static_cdn_endpoint);
+	if (appPublicOverride !== undefined) {
+		return appPublicOverride;
+	}
+
+	return CLOUD_CDN_ENDPOINT;
+}
+
+function resolveAppPublic(config, selfHostedBuild) {
 	const appPublic = getValue(config, ['app_public'], {});
 	const domain = getValue(config, ['domain'], {});
 	const overrides = getValue(config, ['endpoint_overrides'], {});
 	const endpoints = deriveEndpointsFromDomain(domain, overrides);
-	const defaultBootstrapEndpoint = endpoints.api;
-	const defaultPublicEndpoint = stripApiSuffix(endpoints.api);
+	const defaultBootstrapEndpoint = selfHostedBuild ? '/api' : endpoints.api;
+	const defaultPublicEndpoint = selfHostedBuild ? '/api' : stripApiSuffix(endpoints.api);
 	const sentryDsn = asString(appPublic.sentry_dsn);
 	return {
 		apiVersion: asString(appPublic.api_version, '1'),
@@ -226,8 +254,15 @@ function getPublicEnvVar(values, name) {
 export default () => {
 	const linguiSwcPlugin = getLinguiSwcPluginConfig();
 	const config = readConfig();
-	const appPublic = resolveAppPublic(config);
+	const selfHostedBuild = isSelfHostedBuild(config);
+	const staticCdnEndpoint = resolveStaticCdnEndpoint(config, selfHostedBuild);
+	const appPublic = resolveAppPublic(config, selfHostedBuild);
 	const buildMetadata = resolveBuildMetadata();
+	const publicPath = isProduction
+		? staticCdnEndpoint === ''
+			? '/'
+			: ensureTrailingSlash(staticCdnEndpoint)
+		: '/';
 	const publicValues = {
 		PUBLIC_BUILD_SHA: buildMetadata.buildSha,
 		PUBLIC_BUILD_NUMBER: buildMetadata.buildNumber,
@@ -250,7 +285,7 @@ export default () => {
 
 		output: {
 			path: DIST_DIR,
-			publicPath: isProduction ? `${CDN_ENDPOINT}/` : '/',
+			publicPath,
 			workerPublicPath: '/',
 			filename: (pathData) => {
 				if (pathData.chunk?.name === 'sw') {
@@ -439,7 +474,7 @@ export default () => {
 				],
 			}),
 
-			staticFilesPlugin({staticCdnEndpoint: CDN_ENDPOINT}),
+			staticFilesPlugin({staticCdnEndpoint}),
 
 			new DefinePlugin({
 				'process.env.NODE_ENV': JSON.stringify(mode),
