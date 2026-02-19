@@ -170,6 +170,7 @@ import type {ISmsProvider} from '@fluxer/sms/src/providers/ISmsProvider';
 import {createSmsProvider} from '@fluxer/sms/src/providers/SmsProviderFactory';
 import {SmsService} from '@fluxer/sms/src/SmsService';
 import {createMiddleware} from 'hono/factory';
+import {Logger} from '@fluxer/api/src/Logger';
 
 const errorI18nService = new ErrorI18nService();
 
@@ -180,6 +181,9 @@ function getTestEmailService(): TestEmailService {
 	}
 	return _testEmailService;
 }
+
+let _blueskyOAuthDisabledByConfig = false;
+let _blueskyOAuthInitFailed = false;
 
 function getVirusScanService() {
 	return Config.clamav.enabled ? VirusScanService : DisabledVirusScanService;
@@ -534,8 +538,25 @@ export const ServiceMiddleware = createMiddleware<HonoEnv>(async (ctx, next) => 
 
 	const injectedBlueskyOAuth = getInjectedBlueskyOAuthService();
 	let blueskyOAuthService: IBlueskyOAuthService | null = injectedBlueskyOAuth ?? null;
-	if (!blueskyOAuthService && Config.auth.bluesky.enabled) {
-		blueskyOAuthService = await BlueskyOAuthService.create(Config.auth.bluesky, kvClient, Config.endpoints.apiPublic);
+	if (!blueskyOAuthService && Config.auth.bluesky.enabled && !_blueskyOAuthInitFailed) {
+		if (Config.auth.bluesky.keys.length === 0) {
+			if (!_blueskyOAuthDisabledByConfig) {
+				Logger.warn(
+					'Bluesky OAuth is enabled but no signing keys are configured; disabling Bluesky OAuth integration',
+				);
+				_blueskyOAuthDisabledByConfig = true;
+			}
+		} else {
+			try {
+				blueskyOAuthService = await BlueskyOAuthService.create(Config.auth.bluesky, kvClient, Config.endpoints.apiPublic);
+			} catch (error) {
+				_blueskyOAuthInitFailed = true;
+				Logger.error(
+					{error: error instanceof Error ? error.message : String(error)},
+					'Failed to initialize Bluesky OAuth service; continuing with Bluesky OAuth disabled',
+				);
+			}
+		}
 	}
 
 	const connectionService = new ConnectionService(connectionRepository, gatewayService, blueskyOAuthService);
