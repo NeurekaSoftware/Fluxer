@@ -135,6 +135,7 @@ COPY --from=app-build /usr/src/app/fluxer_static/ /usr/src/app/assets/
 
 RUN mkdir -p /usr/src/app/data/storage && \
 	mkdir -p /usr/src/app/data/db && \
+	mkdir -p /usr/src/app/data/s3 && \
 	mkdir -p /opt/data && \
 	mkdir -p /data/s3 && \
 	mkdir -p /data/sqlite && \
@@ -159,11 +160,9 @@ ENV FLUXER_SERVER_HOST=0.0.0.0
 ENV FLUXER_SERVER_PORT=8080
 ENV FLUXER_GATEWAY_HOST=127.0.0.1
 ENV FLUXER_GATEWAY_PORT=8082
-ENV DATABASE_BACKEND=sqlite
-ENV SQLITE_PATH=/usr/src/app/data/db/fluxer.db
-ENV STORAGE_ROOT=/usr/src/app/data/storage
-ENV SEARCH_BACKEND=sqlite
-ENV FLUXER_SERVER_STATIC_DIR=/usr/src/app/assets
+ENV FLUXER_CONFIG__DATABASE__SQLITE_PATH=/usr/src/app/data/db/fluxer.db
+ENV FLUXER_CONFIG__SERVICES__S3__DATA_DIR=/usr/src/app/data/s3
+ENV FLUXER_CONFIG__SERVICES__SERVER__STATIC_DIR=/usr/src/app/assets
 
 ENV BUILD_SHA=${BUILD_SHA}
 ENV BUILD_NUMBER=${BUILD_NUMBER}
