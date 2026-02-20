@@ -30,7 +30,10 @@ export interface IStorageService {
 
 	deleteObject(bucket: string, key: string): Promise<void>;
 
-	getObjectMetadata(bucket: string, key: string): Promise<{contentLength: number; contentType: string} | null>;
+	getObjectMetadata(
+		bucket: string,
+		key: string,
+	): Promise<{contentLength: number; contentType: string; lastModified?: Date} | null>;
 
 	readObject(bucket: string, key: string): Promise<Uint8Array>;
 

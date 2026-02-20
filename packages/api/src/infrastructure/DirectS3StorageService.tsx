@@ -122,7 +122,10 @@ export class DirectS3StorageService implements IStorageService {
 		this.expirationManager.clearExpiration(bucket, key);
 	}
 
-	async getObjectMetadata(bucket: string, key: string): Promise<{contentLength: number; contentType: string} | null> {
+	async getObjectMetadata(
+		bucket: string,
+		key: string,
+	): Promise<{contentLength: number; contentType: string; lastModified?: Date} | null> {
 		const expired = await this.expirationManager.expireIfNeeded(bucket, key);
 		if (expired) {
 			return null;
@@ -132,6 +135,7 @@ export class DirectS3StorageService implements IStorageService {
 			return {
 				contentLength: metadata.size,
 				contentType: metadata.contentType ?? 'application/octet-stream',
+				lastModified: metadata.lastModified,
 			};
 		} catch (error) {
 			const errorCode =

@@ -33,7 +33,7 @@ export interface MockStorageServiceConfig {
 }
 
 export class MockStorageService implements IStorageService {
-	private objects: Map<string, {data: Uint8Array; contentType?: string}> = new Map();
+	private objects: Map<string, {data: Uint8Array; contentType?: string; lastModified: Date}> = new Map();
 	private multipartUploads: Map<string, {parts: Map<number, Uint8Array>; key: string; bucket: string}> = new Map();
 	private deletedObjects: Array<{bucket: string; key: string}> = [];
 	private copiedObjects: Array<{
@@ -84,7 +84,7 @@ export class MockStorageService implements IStorageService {
 		if (this.config.shouldFail || this.config.shouldFailUpload) {
 			throw new Error('Mock storage upload failure');
 		}
-		this.objects.set(params.key, {data: params.body, contentType: params.contentType});
+		this.objects.set(params.key, {data: params.body, contentType: params.contentType, lastModified: new Date()});
 	}
 
 	async deleteObject(bucket: string, key: string): Promise<void> {
@@ -96,11 +96,18 @@ export class MockStorageService implements IStorageService {
 		this.objects.delete(key);
 	}
 
-	async getObjectMetadata(bucket: string, key: string): Promise<{contentLength: number; contentType: string} | null> {
+	async getObjectMetadata(
+		bucket: string,
+		key: string,
+	): Promise<{contentLength: number; contentType: string; lastModified?: Date} | null> {
 		this.getObjectMetadataSpy(bucket, key);
 		const obj = this.objects.get(key);
 		if (!obj) return null;
-		return {contentLength: obj.data.length, contentType: obj.contentType ?? 'application/octet-stream'};
+		return {
+			contentLength: obj.data.length,
+			contentType: obj.contentType ?? 'application/octet-stream',
+			lastModified: obj.lastModified,
+		};
 	}
 
 	async readObject(bucket: string, key: string): Promise<Uint8Array> {
@@ -174,6 +181,7 @@ export class MockStorageService implements IStorageService {
 			this.objects.set(params.destinationKey, {
 				data: sourceObj.data,
 				contentType: params.newContentType ?? sourceObj.contentType,
+				lastModified: new Date(),
 			});
 		}
 	}
@@ -226,7 +234,13 @@ export class MockStorageService implements IStorageService {
 		prefix: string;
 	}): Promise<ReadonlyArray<{key: string; lastModified?: Date}>> {
 		this.listObjectsSpy(_params);
-		return [];
+		const results: Array<{key: string; lastModified?: Date}> = [];
+		for (const [key, object] of this.objects.entries()) {
+			if (key.startsWith(_params.prefix)) {
+				results.push({key, lastModified: object.lastModified});
+			}
+		}
+		return results;
 	}
 
 	async deleteObjects(_params: {bucket: string; objects: ReadonlyArray<{Key: string}>}): Promise<void> {
@@ -280,7 +294,7 @@ export class MockStorageService implements IStorageService {
 			combined.set(data, offset);
 			offset += data.length;
 		}
-		this.objects.set(upload.key, {data: combined});
+		this.objects.set(upload.key, {data: combined, lastModified: new Date()});
 		this.multipartUploads.delete(params.uploadId);
 	}
 

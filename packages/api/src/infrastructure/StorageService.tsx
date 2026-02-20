@@ -116,13 +116,17 @@ export class StorageService implements IStorageService {
 		await this.getClient(bucket).send(command);
 	}
 
-	async getObjectMetadata(bucket: string, key: string): Promise<{contentLength: number; contentType: string} | null> {
+	async getObjectMetadata(
+		bucket: string,
+		key: string,
+	): Promise<{contentLength: number; contentType: string; lastModified?: Date} | null> {
 		try {
 			const command = new HeadObjectCommand({Bucket: bucket, Key: key});
 			const response = await this.getClient(bucket).send(command);
 			return {
 				contentLength: response.ContentLength ?? 0,
 				contentType: response.ContentType ?? '',
+				lastModified: response.LastModified,
 			};
 		} catch (error) {
 			if (error instanceof S3ServiceException && error.name === 'NotFound') {
