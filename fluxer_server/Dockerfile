@@ -160,7 +160,7 @@ ENV FLUXER_SERVER_HOST=0.0.0.0
 ENV FLUXER_SERVER_PORT=8080
 ENV FLUXER_GATEWAY_HOST=127.0.0.1
 ENV FLUXER_GATEWAY_PORT=8082
-ENV FLUXER_CONFIG__DATABASE__SQLITE_PATH=/usr/src/app/data/db/fluxer.db
+ENV FLUXER_CONFIG__DATABASE__SQLITE_PATH=/usr/src/app/data/fluxer.db
 ENV FLUXER_CONFIG__SERVICES__S3__DATA_DIR=/usr/src/app/data/s3
 ENV FLUXER_CONFIG__SERVICES__SERVER__STATIC_DIR=/usr/src/app/assets
 
@@ -169,9 +169,9 @@ ENV BUILD_NUMBER=${BUILD_NUMBER}
 ENV BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 ENV RELEASE_CHANNEL=${RELEASE_CHANNEL}
 
-WORKDIR /usr/src/app/fluxer_server
+WORKDIR /usr/src/app
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 	CMD curl -f http://localhost:8080/_health || exit 1
 
-ENTRYPOINT ["pnpm", "start"]
+ENTRYPOINT ["pnpm", "--dir", "/usr/src/app/fluxer_server", "start"]
