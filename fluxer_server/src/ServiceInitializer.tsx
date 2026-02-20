@@ -80,6 +80,36 @@ function createKVProvider(config: Config): IKVProvider {
 	});
 }
 
+function getEndpointPort(url: URL): number {
+	if (url.port) {
+		return Number.parseInt(url.port, 10);
+	}
+	return url.protocol === 'https:' ? 443 : 80;
+}
+
+function shouldUseInProcessS3Storage(config: Config): boolean {
+	const endpoint = config.s3?.endpoint;
+	if (!endpoint) {
+		return true;
+	}
+
+	try {
+		const endpointUrl = new URL(endpoint);
+		const hostname = endpointUrl.hostname.toLowerCase();
+		const endpointPath = endpointUrl.pathname.replace(/\/+$/, '') || '/';
+		const endpointPort = getEndpointPort(endpointUrl);
+
+		const isLoopbackHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+		const isInProcessS3Path = endpointPath === '/s3' || endpointPath.startsWith('/s3/');
+		const isServerPort = endpointPort === config.port;
+
+		return isLoopbackHost && isInProcessS3Path && isServerPort;
+	} catch {
+		// Preserve current behavior for invalid/unparseable endpoints.
+		return true;
+	}
+}
+
 function createS3Initializer(context: ServiceInitializationContext): ServiceInitializer {
 	const {config, logger} = context;
 	const componentLogger = logger.child({component: 's3'});
@@ -373,8 +403,18 @@ export async function initializeAllServices(context: ServiceInitializationContex
 		services.s3 = s3Init.service as S3AppResult;
 
 		if (services.s3) {
-			rootLogger.info('Wiring DirectS3StorageService for in-process communication');
-			setInjectedS3Service(services.s3.getS3Service());
+			if (shouldUseInProcessS3Storage(context.config)) {
+				rootLogger.info('Wiring DirectS3StorageService for in-process communication');
+				setInjectedS3Service(services.s3.getS3Service());
+			} else {
+				rootLogger.info(
+					{
+						endpoint: context.config.s3?.endpoint,
+					},
+					'Using endpoint-based S3 client for API storage (external S3 mode)',
+				);
+				setInjectedS3Service(undefined);
+			}
 		}
 
 		rootLogger.info('Initializing JetStream worker queue');
