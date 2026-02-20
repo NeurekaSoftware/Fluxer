@@ -89,6 +89,7 @@ COPY tsconfigs /usr/src/app/tsconfigs
 
 COPY packages/ ./packages/
 COPY fluxer_app/ ./fluxer_app/
+COPY fluxer_static/ ./fluxer_static/
 COPY config/config.app-build.json /usr/src/app/config/config.app-build.json
 
 ENV FLUXER_CONFIG=/usr/src/app/config/config.app-build.json
@@ -130,6 +131,7 @@ COPY --from=build /usr/src/app/pnpm-workspace.yaml ./
 COPY --from=build /usr/src/app/package.json ./
 COPY --from=gateway-build /usr/src/app/gateway/fluxer_gateway/_build/prod/rel/fluxer_gateway /opt/fluxer_gateway
 COPY --from=app-build /usr/src/app/fluxer_app/dist /usr/src/app/assets
+COPY --from=app-build /usr/src/app/fluxer_static/ /usr/src/app/assets/
 
 RUN mkdir -p /usr/src/app/data/storage && \
 	mkdir -p /usr/src/app/data/db && \
