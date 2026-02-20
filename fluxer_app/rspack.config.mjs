@@ -34,6 +34,7 @@ const SRC_DIR = path.join(ROOT_DIR, 'src');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const PKGS_DIR = path.join(ROOT_DIR, 'pkgs');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'assets');
+const SHARED_WEB_ASSETS_DIR = path.join(MONOREPO_ROOT, 'fluxer_static', 'web');
 
 const CLOUD_CDN_ENDPOINT = 'https://fluxerstatic.com';
 
@@ -469,6 +470,11 @@ export default () => {
 					{
 						from: PUBLIC_DIR,
 						to: DIST_DIR,
+						noErrorOnMissing: true,
+					},
+					{
+						from: SHARED_WEB_ASSETS_DIR,
+						to: path.join(DIST_DIR, 'web'),
 						noErrorOnMissing: true,
 					},
 				],
